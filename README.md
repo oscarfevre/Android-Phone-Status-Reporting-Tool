@@ -1,6 +1,6 @@
 # Android Status Slack Reporter (Java)
 
-This is a minimal Android (Java) scaffold that collects basic device metrics (memory, temperature, battery) and posts formatted status messages to a Slack Incoming Webhook.
+This is a minimal Android (Java) app that collects basic device metrics (memory, temperature, battery) and posts formatted status messages to a Slack Incoming Webhook.
 
 Overview
 
