@@ -49,3 +49,7 @@ Build, install, and connect to Slack (CLI)
 9. To stop, tap "Stop Service" in the app. If the device reboots and a webhook was saved, the boot receiver restarts the service automatically.
 
 If you don’t have Java installed, you can’t build with Gradle. In that case, you would need a prebuilt APK from a trusted source and install it with `adb install`. For security, building your own APK from this source with a JDK is recommended.
+
+License
+
+Apache 2.0 (see LICENSE).
