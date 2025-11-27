@@ -17,11 +17,15 @@ public class ApiPoster {
     private static final OkHttpClient client = new OkHttpClient();
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    public static boolean postJson(String url, JSONObject payload) {
+    public static boolean postJson(String url, JSONObject payload, String apiKey) {
         if (url == null || url.isEmpty()) return false;
         try {
             RequestBody body = RequestBody.create(payload.toString(), JSON);
-            Request req = new Request.Builder().url(url).post(body).build();
+            Request.Builder builder = new Request.Builder().url(url).post(body);
+            if (apiKey != null && !apiKey.isEmpty()) {
+                builder.header("Authorization", "Bearer " + apiKey);
+            }
+            Request req = builder.build();
             try (Response resp = client.newCall(req).execute()) {
                 boolean ok = resp.isSuccessful();
                 if (!ok) Log.w(TAG, "API post failed: " + resp.code() + " " + resp.message());

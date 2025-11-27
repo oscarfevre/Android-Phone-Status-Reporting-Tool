@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
 import android.location.LocationListener;
+import android.os.Bundle;
 import android.location.LocationManager;
 import android.os.Build;
 import android.util.Log;
@@ -37,6 +38,7 @@ public class MetricService extends Service {
 
     private String webhookUrl = null;
     private String apiEndpoint = null;
+    private String apiKey = null;
     private int intervalSeconds = 30;
 
     @Override
@@ -53,6 +55,9 @@ public class MetricService extends Service {
         }
         if (intent != null && intent.hasExtra("api")) {
             apiEndpoint = intent.getStringExtra("api");
+        }
+        if (intent != null && intent.hasExtra("apiKey")) {
+            apiKey = intent.getStringExtra("apiKey");
         }
         if (scheduler == null) {
             // prime CPU baseline so first tick has a delta
@@ -120,12 +125,14 @@ public class MetricService extends Service {
                     payload.put("batteryPct", bi.level);
                     payload.put("voltageV", bi.voltageMv / 1000.0);
                     if (li.lat != null && li.lon != null) {
-                        payload.put("lat", li.lat);
-                        payload.put("lon", li.lon);
+                        double lat5 = Math.round(li.lat * 100000.0) / 100000.0;
+                        double lon5 = Math.round(li.lon * 100000.0) / 100000.0;
+                        payload.put("lat", lat5);
+                        payload.put("lon", lon5);
                         if (li.accuracy != null) payload.put("accuracy", li.accuracy);
                         if (li.provider != null) payload.put("provider", li.provider);
                     }
-                    boolean apiOk = ApiPoster.postJson(apiEndpoint, payload);
+                    boolean apiOk = ApiPoster.postJson(apiEndpoint, payload, apiKey);
                     Log.i(TAG, "Posted to API: " + apiOk);
                 } catch (Exception ex) {
                     Log.w(TAG, "Failed to build/send API payload", ex);
@@ -179,6 +186,21 @@ public class MetricService extends Service {
                     li.accuracy = location.getAccuracy();
                     li.provider = location.getProvider();
                     lastLocation = li;
+                }
+
+                @Override
+                public void onStatusChanged(String provider, int status, Bundle extras) {
+                    // no-op
+                }
+
+                @Override
+                public void onProviderEnabled(String provider) {
+                    // no-op
+                }
+
+                @Override
+                public void onProviderDisabled(String provider) {
+                    // no-op
                 }
             };
             // request from both GPS and network to increase chances on emulator
