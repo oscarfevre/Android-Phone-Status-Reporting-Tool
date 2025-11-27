@@ -19,13 +19,14 @@ import androidx.core.content.ContextCompat;
 public class App extends AppCompatActivity {
     private EditText webhookInput;
     private EditText apiInput;
+    private EditText apiKeyInput;
     private Button startButton;
     private Button stopButton;
     private TextView statusView;
 
-    private static final String PREFS = "android_status_prefs";
     private static final String KEY_WEBHOOK = "webhook_url";
     private static final String KEY_API = "api_endpoint";
+    private static final String KEY_API_KEY = "api_key";
     private static final int REQ_POST_NOTIF = 42;
     private static final int REQ_LOCATION = 43;
 
@@ -39,23 +40,29 @@ public class App extends AppCompatActivity {
         stopButton = findViewById(R.id.btnStop);
         statusView = findViewById(R.id.txtStatus);
         apiInput = findViewById(R.id.editApiEndpoint);
+        apiKeyInput = findViewById(R.id.editApiKey);
 
-        SharedPreferences prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        SharedPreferences prefs = Prefs.get(this);
         String saved = prefs.getString(KEY_WEBHOOK, "");
         String savedApi = prefs.getString(KEY_API, "");
+        String savedApiKey = prefs.getString(KEY_API_KEY, "");
         webhookInput.setText(saved);
         apiInput.setText(savedApi);
+        apiKeyInput.setText(savedApiKey);
 
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 String webhook = webhookInput.getText().toString().trim();
                 String api = apiInput.getText().toString().trim();
+                String apiKey = apiKeyInput.getText().toString().trim();
                 prefs.edit().putString(KEY_WEBHOOK, webhook).apply();
                 prefs.edit().putString(KEY_API, api).apply();
+                prefs.edit().putString(KEY_API_KEY, apiKey).apply();
                 Intent svc = new Intent(App.this, MetricService.class);
                 svc.putExtra("webhook", webhook);
                 svc.putExtra("api", api);
+                svc.putExtra("apiKey", apiKey);
                 ContextCompat.startForegroundService(App.this, svc);
                 statusView.setText("Service started");
             }

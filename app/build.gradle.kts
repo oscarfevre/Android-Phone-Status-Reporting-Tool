@@ -38,6 +38,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.core:core:1.10.1")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
 
 java {

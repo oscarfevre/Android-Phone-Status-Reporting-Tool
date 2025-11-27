@@ -17,6 +17,13 @@
         android:layout_height="wrap_content"
         android:hint="API endpoint for GPS JSON (e.g., https://example.com/location)" />
 
+    <EditText
+        android:id="@+id/editApiKey"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="API key (optional)"
+        android:inputType="textPassword" />
+
     <Button
         android:id="@+id/btnStart"
         android:layout_width="match_parent"
