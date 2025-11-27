@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.BatteryManager;
 import android.os.Build;
+import android.location.Location;
+import android.location.LocationManager;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -166,6 +168,13 @@ public class MetricsCollector {
         public boolean charging = false;
     }
 
+    public static class LocationInfo {
+        public Double lat;
+        public Double lon;
+        public Float accuracy;
+        public String provider;
+    }
+
     public static BatteryInfo readBattery(Context ctx) {
         BatteryInfo bi = new BatteryInfo();
         try {
@@ -193,5 +202,33 @@ public class MetricsCollector {
         } catch (Exception ignored) {
         }
         return Build.MODEL != null ? Build.MODEL.replaceAll("\\s+", "_") : "device";
+    }
+
+    public static LocationInfo readLocation(Context ctx) {
+        LocationInfo li = new LocationInfo();
+        try {
+            LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) return li;
+            Location best = null;
+            for (String p : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER}) {
+                try {
+                    Location l = lm.getLastKnownLocation(p);
+                    if (l != null && (best == null || l.getAccuracy() < best.getAccuracy())) {
+                        best = l;
+                    }
+                } catch (SecurityException se) {
+                    Log.w(TAG, "Location permission missing", se);
+                }
+            }
+            if (best != null) {
+                li.lat = best.getLatitude();
+                li.lon = best.getLongitude();
+                li.accuracy = best.getAccuracy();
+                li.provider = best.getProvider();
+            }
+        } catch (Exception ex) {
+            Log.w(TAG, "readLocation failed", ex);
+        }
+        return li;
     }
 }

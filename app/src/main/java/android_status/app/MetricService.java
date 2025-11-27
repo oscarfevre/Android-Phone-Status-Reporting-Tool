@@ -6,6 +6,9 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Build;
 import android.util.Log;
 
@@ -26,10 +29,14 @@ public class MetricService extends Service {
     private static final String CHANNEL_ID = "android_status_channel";
 
     private ScheduledExecutorService scheduler;
+    private LocationManager locationManager;
+    private LocationListener locationListener;
+    private MetricsCollector.LocationInfo lastLocation = new MetricsCollector.LocationInfo();
     private long prevIdle = -1;
     private long prevTotal = -1;
 
     private String webhookUrl = null;
+    private String apiEndpoint = null;
     private int intervalSeconds = 30;
 
     @Override
@@ -44,6 +51,9 @@ public class MetricService extends Service {
         if (intent != null && intent.hasExtra("webhook")) {
             webhookUrl = intent.getStringExtra("webhook");
         }
+        if (intent != null && intent.hasExtra("api")) {
+            apiEndpoint = intent.getStringExtra("api");
+        }
         if (scheduler == null) {
             // prime CPU baseline so first tick has a delta
             long[] priming = MetricsCollector.readCpuStat();
@@ -56,6 +66,7 @@ public class MetricService extends Service {
             scheduler = Executors.newSingleThreadScheduledExecutor();
             scheduler.scheduleAtFixedRate(this::collectAndSend, 0, intervalSeconds, TimeUnit.SECONDS);
         }
+        startLocationUpdates();
         return START_STICKY;
     }
 
@@ -77,9 +88,10 @@ public class MetricService extends Service {
                 prevTotal = total;
             }
 
-            double memPct = MetricsCollector.readMemUsagePercent();
+            double memPct = Math.round(MetricsCollector.readMemUsagePercent() * 10.0) / 10.0; // one decimal
             Double temp = MetricsCollector.readTempCelsius(ctx);
             BatteryInfo bi = MetricsCollector.readBattery(ctx);
+            MetricsCollector.LocationInfo li = (lastLocation != null && lastLocation.lat != null) ? lastLocation : MetricsCollector.readLocation(ctx);
 
             String deviceId = MetricsCollector.deviceId(ctx);
             String nowShort = new SimpleDateFormat("h:mm a", Locale.getDefault()).format(new Date());
@@ -96,6 +108,28 @@ public class MetricService extends Service {
                 Log.i(TAG, "Posted to Slack: " + ok);
             } else {
                 Log.i(TAG, "Webhook not set, message: " + msg);
+            }
+
+            if (apiEndpoint != null && !apiEndpoint.isEmpty()) {
+                try {
+                    org.json.JSONObject payload = new org.json.JSONObject();
+                    payload.put("deviceId", deviceId);
+                    payload.put("timestampMs", System.currentTimeMillis());
+                    payload.put("memoryPct", memPct);
+                    if (temp != null) payload.put("tempC", temp);
+                    payload.put("batteryPct", bi.level);
+                    payload.put("voltageV", bi.voltageMv / 1000.0);
+                    if (li.lat != null && li.lon != null) {
+                        payload.put("lat", li.lat);
+                        payload.put("lon", li.lon);
+                        if (li.accuracy != null) payload.put("accuracy", li.accuracy);
+                        if (li.provider != null) payload.put("provider", li.provider);
+                    }
+                    boolean apiOk = ApiPoster.postJson(apiEndpoint, payload);
+                    Log.i(TAG, "Posted to API: " + apiOk);
+                } catch (Exception ex) {
+                    Log.w(TAG, "Failed to build/send API payload", ex);
+                }
             }
         } catch (Exception ex) {
             Log.e(TAG, "Error collecting/sending metrics", ex);
@@ -123,10 +157,46 @@ public class MetricService extends Service {
     public void onDestroy() {
         super.onDestroy();
         if (scheduler != null) scheduler.shutdownNow();
+        stopLocationUpdates();
     }
 
     @Override
     public android.os.IBinder onBind(Intent intent) {
         return null;
+    }
+
+    private void startLocationUpdates() {
+        try {
+            locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            if (locationManager == null) return;
+            locationListener = new LocationListener() {
+                @Override
+                public void onLocationChanged(Location location) {
+                    if (location == null) return;
+                    MetricsCollector.LocationInfo li = new MetricsCollector.LocationInfo();
+                    li.lat = location.getLatitude();
+                    li.lon = location.getLongitude();
+                    li.accuracy = location.getAccuracy();
+                    li.provider = location.getProvider();
+                    lastLocation = li;
+                }
+            };
+            // request from both GPS and network to increase chances on emulator
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 0, locationListener);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 0, locationListener);
+        } catch (SecurityException se) {
+            Log.w(TAG, "Location permission not granted; cannot start updates", se);
+        } catch (Exception ex) {
+            Log.w(TAG, "startLocationUpdates failed", ex);
+        }
+    }
+
+    private void stopLocationUpdates() {
+        try {
+            if (locationManager != null && locationListener != null) {
+                locationManager.removeUpdates(locationListener);
+            }
+        } catch (Exception ignored) {
+        }
     }
 }
