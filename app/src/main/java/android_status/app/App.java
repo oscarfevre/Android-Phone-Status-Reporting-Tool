@@ -18,13 +18,16 @@ import androidx.core.content.ContextCompat;
 
 public class App extends AppCompatActivity {
     private EditText webhookInput;
+    private EditText apiInput;
     private Button startButton;
     private Button stopButton;
     private TextView statusView;
 
     private static final String PREFS = "android_status_prefs";
     private static final String KEY_WEBHOOK = "webhook_url";
+    private static final String KEY_API = "api_endpoint";
     private static final int REQ_POST_NOTIF = 42;
+    private static final int REQ_LOCATION = 43;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,18 +38,24 @@ public class App extends AppCompatActivity {
         startButton = findViewById(R.id.btnStart);
         stopButton = findViewById(R.id.btnStop);
         statusView = findViewById(R.id.txtStatus);
+        apiInput = findViewById(R.id.editApiEndpoint);
 
         SharedPreferences prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String saved = prefs.getString(KEY_WEBHOOK, "");
+        String savedApi = prefs.getString(KEY_API, "");
         webhookInput.setText(saved);
+        apiInput.setText(savedApi);
 
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 String webhook = webhookInput.getText().toString().trim();
+                String api = apiInput.getText().toString().trim();
                 prefs.edit().putString(KEY_WEBHOOK, webhook).apply();
+                prefs.edit().putString(KEY_API, api).apply();
                 Intent svc = new Intent(App.this, MetricService.class);
                 svc.putExtra("webhook", webhook);
+                svc.putExtra("api", api);
                 ContextCompat.startForegroundService(App.this, svc);
                 statusView.setText("Service started");
             }
@@ -62,6 +71,7 @@ public class App extends AppCompatActivity {
         });
 
         requestNotificationPermissionIfNeeded();
+        requestLocationPermissionIfNeeded();
     }
 
     private void requestNotificationPermissionIfNeeded() {
@@ -69,6 +79,16 @@ public class App extends AppCompatActivity {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_POST_NOTIF);
             }
+        }
+    }
+
+    private void requestLocationPermissionIfNeeded() {
+        boolean fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (!fine || !coarse) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
+                    REQ_LOCATION);
         }
     }
 
@@ -80,6 +100,12 @@ public class App extends AppCompatActivity {
                 statusView.setText("Notification permission granted");
             } else {
                 statusView.setText("Notification permission denied; foreground notification may be hidden");
+            }
+        } else if (requestCode == REQ_LOCATION && grantResults.length > 0) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                statusView.setText("Location permission granted");
+            } else {
+                statusView.setText("Location permission denied; GPS data will be missing");
             }
         }
     }

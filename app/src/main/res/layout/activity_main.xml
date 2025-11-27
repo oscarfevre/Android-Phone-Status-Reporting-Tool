@@ -11,6 +11,12 @@
         android:layout_height="wrap_content"
         android:hint="Slack Incoming Webhook URL" />
 
+    <EditText
+        android:id="@+id/editApiEndpoint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="API endpoint for GPS JSON (e.g., https://example.com/location)" />
+
     <Button
         android:id="@+id/btnStart"
         android:layout_width="match_parent"
