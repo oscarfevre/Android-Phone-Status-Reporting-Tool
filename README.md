@@ -5,6 +5,7 @@ This is a minimal Android (Java) app that collects basic device metrics (memory,
 Overview
 
 - Foreground service (`MetricService`) periodically reads metrics and posts to Slack and/or your API.
+- Location is requested via Google’s FusedLocationProvider with a GPS/network fallback so you get a fix even on devices without Play Services.
 - Simple UI (`App` activity) to enter the Incoming Webhook URL, an API endpoint, and an optional API key, then start/stop the service.
 - Boot receiver (`BootReceiver`) can auto-start the service after device boot if a webhook URL is stored.
 
@@ -21,6 +22,12 @@ Permissions
 - RECEIVE_BOOT_COMPLETED: optional, to restart service after boot.
 - POST_NOTIFICATIONS: for showing the foreground notification on Android 13+ (requested at runtime).
 - ACCESS_COARSE_LOCATION and ACCESS_FINE_LOCATION: to capture location for the API payload.
+
+Location behavior
+
+- The app asks FusedLocationProviderClient for high-accuracy updates. It will use GPS when available and fall back to Wi‑Fi/cell; if fused isn’t available, it falls back to GPS+network via `LocationManager`.
+- If you want only GPS fixes, filter payloads where `provider == "gps"`. Otherwise `provider` may be `fused` (best available) or `network` (coarser).
+- `accuracy` in payloads is meters at ~68% confidence (~1σ). Lower numbers mean a tighter estimated error circle.
 
 How it works
 
@@ -44,13 +51,13 @@ Build, install, and connect to Slack (CLI)
 
 1. Connect the device with USB debugging enabled and accept the RSA prompt.
 2. Check device is recognised with `adb devices`
-3. Build the APK (requires JDK 17): `./gradlew clean assembleDebug`
+3. Build the APK (requires JDK 17): `./gradlew clean build`
 4. Install to the device: `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 5. Open "Android Status" on the phone.
 6. Paste your Slack Incoming Webhook URL, your API endpoint URL, and (optionally) your API key.
 7. Tap "Start Service" (grant notification and location permissions when prompted). A foreground notification should appear.
 8. Check your Slack channel for messages like: `[time] [timestamp] NOTIFICATION [Camera <id>] MEM: X% | temp=Y'C | Battery: Z% | Voltage: V`.
-9. Verify your API endpoint receives JSON with metrics + location. From an emulator, use `http://10.0.2.2:<port>/...` to reach a server on your host.
+9. Verify your API endpoint receives JSON with metrics + location. 
 10. To stop, tap "Stop Service" in the app. If the device reboots and a webhook was saved, the boot receiver restarts the service automatically.
 
 If you don’t have Java installed, you can’t build with Gradle. In that case, you would need a prebuilt APK from a trusted source and install it with `adb install`. For security, building your own APK from this source with a JDK is recommended.

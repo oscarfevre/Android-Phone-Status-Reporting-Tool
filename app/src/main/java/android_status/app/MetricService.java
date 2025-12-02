@@ -11,9 +11,17 @@ import android.location.LocationListener;
 import android.os.Bundle;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -30,6 +38,8 @@ public class MetricService extends Service {
     private static final String CHANNEL_ID = "android_status_channel";
 
     private ScheduledExecutorService scheduler;
+    private FusedLocationProviderClient fusedLocationClient;
+    private LocationCallback fusedCallback;
     private LocationManager locationManager;
     private LocationListener locationListener;
     private MetricsCollector.LocationInfo lastLocation = new MetricsCollector.LocationInfo();
@@ -173,19 +183,40 @@ public class MetricService extends Service {
     }
 
     private void startLocationUpdates() {
+        // stop any previous callbacks before starting a new provider
+        stopLocationUpdates();
+        boolean fusedStarted = false;
+        try {
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+            LocationRequest req = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10_000)
+                    .setMinUpdateIntervalMillis(5_000)
+                    .setWaitForAccurateLocation(true)
+                    .build();
+            fusedCallback = new LocationCallback() {
+                @Override
+                public void onLocationResult(LocationResult result) {
+                    if (result == null || result.getLocations() == null) return;
+                    for (Location l : result.getLocations()) {
+                        updateLastLocation(l);
+                    }
+                }
+            };
+            fusedLocationClient.requestLocationUpdates(req, fusedCallback, Looper.getMainLooper());
+            fusedStarted = true;
+        } catch (SecurityException se) {
+            Log.w(TAG, "Location permission not granted; cannot start fused updates", se);
+        } catch (Exception ex) {
+            Log.w(TAG, "startLocationUpdates (fused) failed, falling back", ex);
+        }
+        if (fusedStarted) return;
+
         try {
             locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
             if (locationManager == null) return;
             locationListener = new LocationListener() {
                 @Override
                 public void onLocationChanged(Location location) {
-                    if (location == null) return;
-                    MetricsCollector.LocationInfo li = new MetricsCollector.LocationInfo();
-                    li.lat = location.getLatitude();
-                    li.lon = location.getLongitude();
-                    li.accuracy = location.getAccuracy();
-                    li.provider = location.getProvider();
-                    lastLocation = li;
+                    updateLastLocation(location);
                 }
 
                 @Override
@@ -207,7 +238,7 @@ public class MetricService extends Service {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 0, locationListener);
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 0, locationListener);
         } catch (SecurityException se) {
-            Log.w(TAG, "Location permission not granted; cannot start updates", se);
+            Log.w(TAG, "Location permission not granted; cannot start fallback updates", se);
         } catch (Exception ex) {
             Log.w(TAG, "startLocationUpdates failed", ex);
         }
@@ -215,10 +246,23 @@ public class MetricService extends Service {
 
     private void stopLocationUpdates() {
         try {
+            if (fusedLocationClient != null && fusedCallback != null) {
+                fusedLocationClient.removeLocationUpdates(fusedCallback);
+            }
             if (locationManager != null && locationListener != null) {
                 locationManager.removeUpdates(locationListener);
             }
         } catch (Exception ignored) {
         }
+    }
+
+    private void updateLastLocation(Location location) {
+        if (location == null) return;
+        MetricsCollector.LocationInfo li = new MetricsCollector.LocationInfo();
+        li.lat = location.getLatitude();
+        li.lon = location.getLongitude();
+        li.accuracy = location.getAccuracy();
+        li.provider = location.getProvider();
+        lastLocation = li;
     }
 }
