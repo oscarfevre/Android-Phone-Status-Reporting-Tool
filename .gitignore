@@ -5,3 +5,12 @@
 build
 java_pid*.hprof
 java_pid*.hprof
+
+# Keystores and signing configs (kept local only)
+*.jks
+*.keystore
+*.keystore.properties
+signing.properties
+
+# Firebase config (add your own google-services.json locally, do not commit)
+/app/google-services.json

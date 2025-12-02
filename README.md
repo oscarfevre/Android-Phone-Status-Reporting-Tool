@@ -1,54 +1,72 @@
-# Android Status Slack Reporter (Java)
+# Android Status Reporter (Java)
 
-This is a minimal Android (Java) app that collects basic device metrics (memory, temperature, battery) plus location/timestamp. It posts formatted status messages to a Slack Incoming Webhook and can also POST a JSON payload (including GPS) to any API endpoint you configure. API calls can include an API key header for authentication.
+## What it does
+- Collects device metrics (memory %, temperature, battery level/voltage) and location (lat/lon/accuracy/provider/timestamp).
+- Posts to Slack and/or your API. API calls can include an Authorization Bearer header.
+- Supports periodic sends (every 30s) or on-demand via Firebase Cloud Messaging (FCM) data messages.
+- Runs as a foreground service; can restart after boot.
 
-Overview
+## Quick start (device)
+- Install: use a published APK (Releases) or build `./gradlew clean assembleDebug` then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+- Open the app; enter Slack webhook, API URL, optional API key.
+- Choose: enable/disable Slack, API, and periodic 30s sends (leave periodic off for FCM-only on-demand). FCM-triggered sends go to the API only.
+- Tap “Start Service”; grant notifications + location. Verify payloads arriving at Slack/API.
+- If sideloading via `adb`, enable USB debugging on the device (Developer Options → USB debugging) and accept the RSA prompt.
 
-- Foreground service (`MetricService`) periodically reads metrics and posts to Slack and/or your API.
-- Location is requested via Google’s FusedLocationProvider with a GPS/network fallback so you get a fix even on devices without Play Services.
-- Simple UI (`App` activity) to enter the Incoming Webhook URL, an API endpoint, and an optional API key, then start/stop the service.
-- Boot receiver (`BootReceiver`) can auto-start the service after device boot if a webhook URL is stored.
+## Backend setup for on-demand location
+- Firebase: add Android app `android_status.app` to your Firebase project; place `app/google-services.json` locally (ignored by git). Download a service account JSON for FCM HTTP v1.
+- Token capture: on `onNewToken`, the app POSTs `{type: "registerToken", deviceId, fcmToken}` to your API endpoint (if configured). Store/update tokens per device on your backend. Without an API, you can read the token from `adb logcat -s FcmService`.
+- Trigger: when your backend wants a fix, send a data message `{ "type": "REQUEST_LOCATION" }` via FCM HTTP v1 to the stored token. The app immediately posts metrics/location to your API/Slack.
+- HTTP v1 example:
+  ```bash
+  curl -X POST \
+    -H "Authorization: Bearer ACCESS_TOKEN" \
+    -H "Content-Type: application/json; UTF-8" \
+    -d '{ "message": { "token": "DEVICE_FCM_TOKEN", "data": { "type": "REQUEST_LOCATION" } } }' \
+    https://fcm.googleapis.com/v1/projects/PROJECT_ID/messages:send
+  ```
+- Helper script: `scripts/send_fcm.py --key service-account.json --project PROJECT_ID --token DEVICE_FCM_TOKEN` (requires `google-auth` and `requests`).
 
-Getting the app
+## End-to-end flow
+1) App starts service → collects metrics/location.
+2) If periodic enabled: posts every 30s to enabled targets (Slack/API).
+3) Token management: on token refresh, app POSTs `{type: registerToken, deviceId, fcmToken}` to your API (if set).
+4) Backend stores token; when an event occurs (e.g., video analytics), backend sends FCM `{type: REQUEST_LOCATION}` to that token.
+5) App receives FCM, triggers immediate `collectAndSend`, posting to your API/Slack.
 
-- Download a published APK from the repo’s Releases and install with `adb install -r app-release.apk` (enable installs from unknown sources).
-- Or build it yourself (JDK 17 + Android SDK Platform-Tools): `./gradlew clean assembleDebug`, then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+## API contracts (suggested)
+- Token registration request (app → backend):
+  - Method: POST to your API URL
+  - Body: `{"type":"registerToken","deviceId":"...","deviceName":"...","fcmToken":"..."}` (`deviceName` optional)
+- Location payload (app → backend on periodic or on-demand):
+  - Method: POST to your API URL
+  - Body: `{"deviceId":"...","deviceName":"...","timestampMs":123,"memoryPct":34.8,"tempC":30.0,"batteryPct":99,"voltageV":4.27,"lat":-33.8637,"lon":151.2022,"accuracy":11.4,"provider":"fused"}`
+- On backend: store/update tokens on every `registerToken`; mark tokens stale on FCM `NotRegistered` errors.
 
-Set up on the device
+## Permissions
+- INTERNET
+- FOREGROUND_SERVICE
+- RECEIVE_BOOT_COMPLETED (optional)
+- POST_NOTIFICATIONS (runtime on Android 13+)
+- ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION
+- WAKE_LOCK, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
 
-1. Open “Android Status”.
-2. Paste your Slack Incoming Webhook URL, API endpoint URL, and (optional) API key.
-3. Tap “Start Service”; grant notification + location permissions.
-4. Verify Slack/API payloads are arriving.
+## Requirements (building yourself)
+- Java 17 and Android SDK Platform-Tools (adb).
+- Firebase `google-services.json` (for FCM) placed under `app/`.
+- Device on Android 8.1+ (minSdk 27).
 
-Permissions
+## Code overview
+- `App`: UI to enter Slack/API/API key, enable/disable Slack/API/periodic, start/stop service.
+- `MetricService`: foreground service that collects metrics/location, posts to Slack/API; honors periodic/target toggles; can send immediately on FCM trigger.
+- `FcmService`: receives FCM data `{type: REQUEST_LOCATION}`, starts `MetricService` with `triggerImmediate`; on token refresh, posts token to API (if configured).
+- `ApiPoster`/`SlackPoster`: lightweight OkHttp clients.
+- `Prefs`: encrypted/shared preferences for settings.
+- `MetricsCollector`: reads system stats and last known location (fused GPS/network).
 
-- INTERNET: to post to Slack.
-- FOREGROUND_SERVICE: to run a persistent background service on Android 8.1+.
-- RECEIVE_BOOT_COMPLETED: optional, to restart service after boot.
-- POST_NOTIFICATIONS: for showing the foreground notification on Android 13+ (requested at runtime).
-- ACCESS_COARSE_LOCATION and ACCESS_FINE_LOCATION: to capture location for the API payload.
-
-Location behavior
-
-- The app asks FusedLocationProviderClient for high-accuracy updates. It will use GPS when available and fall back to Wi‑Fi/cell; if fused isn’t available, it falls back to GPS+network via `LocationManager`.
-- If you want only GPS fixes, filter payloads where `provider == "gps"`. Otherwise `provider` may be `fused` (best available) or `network` (coarser).
-- `accuracy` in payloads is meters at ~68% confidence (~1σ). Lower numbers mean a tighter estimated error circle.
-
-How it works
-
-- The Activity (`App`) lets you paste a Slack Incoming Webhook URL, an API endpoint URL, and an API key, saves them in encrypted SharedPreferences, and starts/stops the foreground service.
-- The foreground service (`MetricService`) posts a message every 30s with memory %, temperature (thermal zones/hwmon/battery fallback), battery level, and voltage to Slack. It also sends JSON to your API with metrics plus `lat`, `lon`, `accuracy`, `provider`, and `timestampMs`, and includes an Authorization Bearer header if an API key is provided.
-- `BootReceiver` listens for `BOOT_COMPLETED` and restarts the service if a webhook is saved.
-- `SlackPoster` uses OkHttp to POST `{ "text": "<message>" }` directly to Slack so no server is involved.
-- `ApiPoster` uses OkHttp to POST JSON to your API endpoint (e.g., `{ deviceId, timestampMs, memoryPct, tempC, batteryPct, voltageV, lat, lon, accuracy, provider }`).
-
-Requirements (if building yourself)
-
-- Java 17, Android SDK Platform-Tools (adb) on your PATH.
-- Slack Incoming Webhook URL, API endpoint URL (use `http://10.0.2.2:<port>/...` to hit a host service from an emulator), optional API key.
-- Device on Android 8.1+ (minSdk 27). Android Studio is optional; CLI is fine.
-
-License
-
-Apache 2.0 (see LICENSE).
+## Notes
+- Keep secrets out of git: `google-services.json`, service account keys, keystores stay local.
+- If you want only on-demand, disable periodic sends in the app UI.
+- FCM tokens can rotate; ensure backend stores the latest from `registerToken`.
+- Whitelist the app from aggressive battery savers/App Blocker on the device for reliable FCM and foreground service (e.g., Settings → Battery → Battery optimization/App Blocker → allow this app).
+- Quick test: start service, capture token (or let backend receive `registerToken`), send FCM REQUEST_LOCATION via script, confirm a single payload arrives at your API (and Slack if enabled).

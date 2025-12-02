@@ -1,46 +1,112 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="#FFFFFF">
 
-    <EditText
-        android:id="@+id/editWebhook"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Slack Incoming Webhook URL" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <EditText
-        android:id="@+id/editApiEndpoint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="API endpoint for GPS JSON (e.g., https://example.com/location)" />
+        <ImageView
+            android:id="@+id/bannerImage"
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:contentDescription="Unleash logo"
+            android:src="@drawable/unleash_logo" />
 
-    <EditText
-        android:id="@+id/editApiKey"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="API key (optional)"
-        android:inputType="textPassword" />
+        <EditText
+            android:id="@+id/editWebhook"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="Slack Webhook for metrics"
+            android:textColor="#222222"
+            android:textColorHint="#888888"
+            android:backgroundTint="#CCCCCC"
+            android:textCursorDrawable="@null" />
 
-    <Button
-        android:id="@+id/btnStart"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Start Service" />
+        <Switch
+            android:id="@+id/switchEnableSlack"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Send to Slack"
+            android:textColor="#222222"
+            android:thumbTint="#d32a0f"
+            android:trackTint="#66d32a0f"
+            android:checked="true" />
 
-    <Button
-        android:id="@+id/btnStop"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Stop Service" />
+        <Switch
+            android:id="@+id/switchEnablePeriodic"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Enable periodic 30s sends"
+            android:textColor="#222222"
+            android:thumbTint="#d32a0f"
+            android:trackTint="#66d32a0f"
+            android:checked="true" />
 
-    <TextView
-        android:id="@+id/txtStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Status: idle"
-        android:paddingTop="12dp" />
+        <EditText
+            android:id="@+id/editApiEndpoint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="API endpoint for GPS JSON"
+            android:textColor="#222222"
+            android:textColorHint="#888888"
+            android:backgroundTint="#CCCCCC"
+            android:textCursorDrawable="@null" />
 
-</LinearLayout>
+        <EditText
+            android:id="@+id/editApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="API key (optional)"
+            android:textColor="#222222"
+            android:textColorHint="#888888"
+            android:backgroundTint="#CCCCCC"
+            android:inputType="textPassword"
+            android:textCursorDrawable="@null" />
+
+        <Switch
+            android:id="@+id/switchEnableApi"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Send to API"
+            android:textColor="#222222"
+            android:thumbTint="#d32a0f"
+            android:trackTint="#66d32a0f"
+            android:checked="true" />
+
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Start Service"
+            android:background="#d32a0f"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Stop Service"
+            android:background="#d32a0f"
+            android:textColor="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/txtStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status: idle"
+            android:textColor="#222222"
+            android:paddingTop="12dp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -8,6 +8,7 @@
 
 plugins {
     id("com.android.application") version "8.6.0"
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -40,6 +41,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 
 java {

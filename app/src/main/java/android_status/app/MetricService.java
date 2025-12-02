@@ -49,7 +49,11 @@ public class MetricService extends Service {
     private String webhookUrl = null;
     private String apiEndpoint = null;
     private String apiKey = null;
+    private boolean enableSlack = true;
+    private boolean enableApi = true;
+    private boolean enablePeriodic = true;
     private int intervalSeconds = 30;
+    private boolean triggerImmediate = false;
 
     @Override
     public void onCreate() {
@@ -69,6 +73,18 @@ public class MetricService extends Service {
         if (intent != null && intent.hasExtra("apiKey")) {
             apiKey = intent.getStringExtra("apiKey");
         }
+        if (intent != null && intent.hasExtra("enableSlack")) {
+            enableSlack = intent.getBooleanExtra("enableSlack", true);
+        }
+        if (intent != null && intent.hasExtra("enableApi")) {
+            enableApi = intent.getBooleanExtra("enableApi", true);
+        }
+        if (intent != null && intent.hasExtra("enablePeriodic")) {
+            enablePeriodic = intent.getBooleanExtra("enablePeriodic", true);
+        }
+        if (intent != null && intent.getBooleanExtra("triggerImmediate", false)) {
+            triggerImmediate = true;
+        }
         if (scheduler == null) {
             // prime CPU baseline so first tick has a delta
             long[] priming = MetricsCollector.readCpuStat();
@@ -79,7 +95,13 @@ public class MetricService extends Service {
                 prevTotal = total;
             }
             scheduler = Executors.newSingleThreadScheduledExecutor();
-            scheduler.scheduleAtFixedRate(this::collectAndSend, 0, intervalSeconds, TimeUnit.SECONDS);
+            if (enablePeriodic) {
+                scheduler.scheduleAtFixedRate(this::collectAndSend, 0, intervalSeconds, TimeUnit.SECONDS);
+            }
+        }
+        if (triggerImmediate) {
+            triggerImmediate = false;
+            scheduler.execute(this::collectAndSend);
         }
         startLocationUpdates();
         return START_STICKY;
@@ -109,6 +131,7 @@ public class MetricService extends Service {
             MetricsCollector.LocationInfo li = (lastLocation != null && lastLocation.lat != null) ? lastLocation : MetricsCollector.readLocation(ctx);
 
             String deviceId = MetricsCollector.deviceId(ctx);
+            String deviceName = resolveDeviceName(deviceId);
             String nowShort = new SimpleDateFormat("h:mm a", Locale.getDefault()).format(new Date());
             String nowFull = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
 
@@ -116,19 +139,20 @@ public class MetricService extends Service {
             String voltage = String.format(Locale.US, "%.2fV", bi.voltageMv / 1000.0);
             String msg = String.format(Locale.US,
                     "[%s] [%s] NOTIFICATION [Camera %s] MEM: %.1f%% | %s | Battery: %d%% | Voltage: %s",
-                    nowShort, nowFull, deviceId, memPct, tempStr, bi.level, voltage);
+                    nowShort, nowFull, (deviceName != null ? deviceName : deviceId), memPct, tempStr, bi.level, voltage);
 
-            if (webhookUrl != null && !webhookUrl.isEmpty()) {
+            if (enableSlack && webhookUrl != null && !webhookUrl.isEmpty()) {
                 boolean ok = SlackPoster.postToWebhook(webhookUrl, msg);
                 Log.i(TAG, "Posted to Slack: " + ok);
             } else {
-                Log.i(TAG, "Webhook not set, message: " + msg);
+                Log.i(TAG, "Slack disabled or webhook not set, message: " + msg);
             }
 
-            if (apiEndpoint != null && !apiEndpoint.isEmpty()) {
+            if (enableApi && apiEndpoint != null && !apiEndpoint.isEmpty()) {
                 try {
                     org.json.JSONObject payload = new org.json.JSONObject();
                     payload.put("deviceId", deviceId);
+                    if (deviceName != null) payload.put("deviceName", deviceName);
                     payload.put("timestampMs", System.currentTimeMillis());
                     payload.put("memoryPct", memPct);
                     if (temp != null) payload.put("tempC", temp);
@@ -147,6 +171,8 @@ public class MetricService extends Service {
                 } catch (Exception ex) {
                     Log.w(TAG, "Failed to build/send API payload", ex);
                 }
+            } else {
+                Log.i(TAG, "API disabled or endpoint not set; skipping API post");
             }
         } catch (Exception ex) {
             Log.e(TAG, "Error collecting/sending metrics", ex);
@@ -264,5 +290,19 @@ public class MetricService extends Service {
         li.accuracy = location.getAccuracy();
         li.provider = location.getProvider();
         lastLocation = li;
+    }
+
+    private String resolveDeviceName(String deviceId) {
+        if (deviceId == null) return null;
+        switch (deviceId) {
+            case "9ea5006ef6b50d20":
+                return "atom1";
+            case "0e908fe6ca72fba2":
+                return "atom2";
+            case "08968328ace45d30":
+                return "atom3";
+            default:
+                return null;
+        }
     }
 }
