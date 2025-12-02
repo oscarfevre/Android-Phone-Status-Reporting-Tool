@@ -9,11 +9,17 @@ Overview
 - Simple UI (`App` activity) to enter the Incoming Webhook URL, an API endpoint, and an optional API key, then start/stop the service.
 - Boot receiver (`BootReceiver`) can auto-start the service after device boot if a webhook URL is stored.
 
-Notes
+Getting the app
 
-- You can build from the command line with Gradle and adb (Android Studio is optional).
-- Minimum SDK is set to 27 (Android 8.1) and should run on Android 8.1+ devices like the UniHertz Atom, though some `/sys` files may be restricted on some devices.
-- Keep the webhook and API URLs private. Store them in encrypted preferences for production (app uses EncryptedSharedPreferences).
+- Download a published APK from the repo’s Releases and install with `adb install -r app-release.apk` (enable installs from unknown sources).
+- Or build it yourself (JDK 17 + Android SDK Platform-Tools): `./gradlew clean assembleDebug`, then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+
+Set up on the device
+
+1. Open “Android Status”.
+2. Paste your Slack Incoming Webhook URL, API endpoint URL, and (optional) API key.
+3. Tap “Start Service”; grant notification + location permissions.
+4. Verify Slack/API payloads are arriving.
 
 Permissions
 
@@ -37,30 +43,11 @@ How it works
 - `SlackPoster` uses OkHttp to POST `{ "text": "<message>" }` directly to Slack so no server is involved.
 - `ApiPoster` uses OkHttp to POST JSON to your API endpoint (e.g., `{ deviceId, timestampMs, memoryPct, tempC, batteryPct, voltageV, lat, lon, accuracy, provider }`).
 
-Requirements
+Requirements (if building yourself)
 
-- Java 17 (for Gradle builds) — install a JDK if you want to build yourself.
-- Android SDK Platform-Tools (adb) on your PATH.
-- A valid Slack Incoming Webhook URL.
-- An API endpoint URL if you want JSON posts (use `http://10.0.2.2:<port>/...` to hit a service on your host).
-- An API key if your endpoint requires it.
-- A device running Android 8.1+ (tested on UniHertz Atom).
-- Android Studio (optional) if you prefer a GUI — otherwise use the CLI commands below.
-
-Build, install, and connect to Slack (CLI)
-
-1. Connect the device with USB debugging enabled and accept the RSA prompt.
-2. Check device is recognised with `adb devices`
-3. Build the APK (requires JDK 17): `./gradlew clean build`
-4. Install to the device: `adb install -r app/build/outputs/apk/debug/app-debug.apk`
-5. Open "Android Status" on the phone.
-6. Paste your Slack Incoming Webhook URL, your API endpoint URL, and (optionally) your API key.
-7. Tap "Start Service" (grant notification and location permissions when prompted). A foreground notification should appear.
-8. Check your Slack channel for messages like: `[time] [timestamp] NOTIFICATION [Camera <id>] MEM: X% | temp=Y'C | Battery: Z% | Voltage: V`.
-9. Verify your API endpoint receives JSON with metrics + location. 
-10. To stop, tap "Stop Service" in the app. If the device reboots and a webhook was saved, the boot receiver restarts the service automatically.
-
-If you don’t have Java installed, you can’t build with Gradle. In that case, you would need a prebuilt APK from a trusted source and install it with `adb install`. For security, building your own APK from this source with a JDK is recommended.
+- Java 17, Android SDK Platform-Tools (adb) on your PATH.
+- Slack Incoming Webhook URL, API endpoint URL (use `http://10.0.2.2:<port>/...` to hit a host service from an emulator), optional API key.
+- Device on Android 8.1+ (minSdk 27). Android Studio is optional; CLI is fine.
 
 License
 
