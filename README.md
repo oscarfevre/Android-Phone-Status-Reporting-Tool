@@ -34,6 +34,17 @@
 4) Backend stores token; when an event occurs (for example, video analytics), backend sends FCM `{type: REQUEST_LOCATION}` to that token
 5) App receives FCM, triggers immediate `collectAndSend`, posting to your API
 
+## Reading location metrics
+- `lat`, `lon`: latitude and longitude in decimal degrees
+- `accuracy`: radius in meters at roughly 68 percent confidence (about one sigma). Smaller numbers are better. For a rough 95 percent radius, double it
+- `provider`: source of the fix. `fused` means Fused Location Provider selected the best available (GPS or network). `gps` is a pure GNSS fix. `network` is Wi Fi or cell and is less precise
+- `timestampMs`: when the sample was taken
+
+## Device identity
+- Each device carries a stable `deviceId` in payloads
+- Known IDs can be mapped to friendly names; the app adds `deviceName` when it recognizes an ID (for example, `atom1`, `atom2`, `atom3`)
+- Use `deviceId` or `deviceName` in your backend to tie locations to physical units
+
 ## API contracts
 - Token registration request (app → backend)
   - Method: POST to your API URL
