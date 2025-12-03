@@ -1,8 +1,12 @@
 # Ignore Gradle project-specific cache directory
 .gradle
 
-# Ignore Gradle build output directory
+# Ignore build outputs and APKs
 build
+app/build/
+*/build/
+*.apk
+*.ap_
 java_pid*.hprof
 java_pid*.hprof
 
@@ -14,3 +18,7 @@ signing.properties
 
 # Firebase config (add your own google-services.json locally, do not commit)
 /app/google-services.json
+local.properties
+
+# IDE files
+.idea/
