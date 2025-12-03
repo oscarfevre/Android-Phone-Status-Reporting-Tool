@@ -31,7 +31,7 @@
 1) App starts service → collects metrics/location
 2) If periodic enabled: posts every 30s to enabled targets (Slack/API)
 3) Token management: on token refresh, app POSTs `{type: registerToken, deviceId, fcmToken}` to your API (if set)
-4) Backend stores token; when an event occurs (for example, video analytics), backend sends FCM `{type: REQUEST_LOCATION}` to that token
+4) Backend stores token; when an event occurs, backend sends FCM `{type: REQUEST_LOCATION}` to that token
 5) App receives FCM, triggers immediate `collectAndSend`, posting to your API
 
 ## Reading location metrics
