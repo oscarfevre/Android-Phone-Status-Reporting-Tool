@@ -4,12 +4,13 @@
 - Collects device metrics (memory %, temperature, battery level/voltage) and location (lat/lon/accuracy/provider/timestamp)
 - Posts to Slack and/or your API. API calls can include an Authorization Bearer header
 - Supports on-demand sends via Firebase Cloud Messaging (FCM) data messages
+- Posts to Slack every 30 seconds when “Send to Slack” is enabled; API/GPS payloads are only sent on FCM request
 - Runs as a foreground service and can restart after boot
 
 ## Quick start (device)
 - Install: use a published APK (Releases) or build `./gradlew clean assembleDebug` then `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 - Open the app and enter Slack webhook, API URL, optional API key
-- Choose: enable or disable Slack and API. GPS/API payloads are only sent on FCM request; Slack can post every 30 seconds if enabled
+- Choose: enable or disable Slack and API. Slack posts every 30 seconds if enabled; GPS/API payloads are only sent on FCM request
 - Tap “Start Service” and grant notifications + location. Verify payloads arriving at Slack/API
 - If sideloading via `adb`, enable USB debugging on the device (Developer Options → USB debugging) and accept the RSA prompt
 
@@ -29,10 +30,11 @@
 
 ## End-to-end flow
 1) App starts service → collects metrics/location
-2) GPS and metrics are sent only on FCM request
-3) Token management: on token refresh, app POSTs `{type: registerToken, deviceId, fcmToken}` to your API (if set)
-4) Backend stores token; when an event occurs, backend sends FCM `{type: REQUEST_LOCATION}` to that token
-5) App receives FCM, triggers immediate `collectAndSend`, posting to your API
+2) Slack posts continue every 30 seconds if Slack is enabled
+3) GPS/API are sent only on FCM request
+4) Token management: on token refresh, app POSTs `{type: registerToken, deviceId, fcmToken}` to your API (if set)
+5) Backend stores token; when an event occurs, backend sends FCM `{type: REQUEST_LOCATION}` to that token
+6) App receives FCM, triggers immediate `collectAndSend`, posting to your API (Slack not triggered by FCM)
 
 ## Reading location metrics
 - `lat`, `lon`: latitude and longitude in decimal degrees

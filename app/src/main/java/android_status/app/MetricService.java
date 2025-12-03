@@ -87,17 +87,11 @@ public class MetricService extends Service {
         } else {
             immediateApiOnly = false;
         }
-        if (scheduler != null) {
-            try {
-                scheduler.shutdownNow();
-            } catch (Exception ignored) {
+        if (scheduler == null) {
+            scheduler = Executors.newSingleThreadScheduledExecutor();
+            if (enableSlack) {
+                scheduler.scheduleAtFixedRate(() -> collectAndSend(true, false), 0, intervalSeconds, TimeUnit.SECONDS);
             }
-            scheduler = null;
-        }
-        // always create executor so immediate tasks can run
-        scheduler = Executors.newSingleThreadScheduledExecutor();
-        if (enableSlack) {
-            scheduler.scheduleAtFixedRate(() -> collectAndSend(true, false), 0, intervalSeconds, TimeUnit.SECONDS);
         }
         if (triggerImmediate) {
             triggerImmediate = false;
