@@ -32,9 +32,9 @@
 2) If periodic enabled: posts every 30s to enabled targets (Slack/API)
 3) Token management: on token refresh, app POSTs `{type: registerToken, deviceId, fcmToken}` to your API (if set)
 4) Backend stores token; when an event occurs (for example, video analytics), backend sends FCM `{type: REQUEST_LOCATION}` to that token
-5) App receives FCM, triggers immediate `collectAndSend`, posting to your API/Slack
+5) App receives FCM, triggers immediate `collectAndSend`, posting to your API
 
-## API contracts (suggested)
+## API contracts
 - Token registration request (app → backend)
   - Method: POST to your API URL
   - Body: `{"type":"registerToken","deviceId":"...","deviceName":"...","fcmToken":"..."}` (`deviceName` optional)
@@ -46,7 +46,7 @@
 ## Permissions
 - INTERNET
 - FOREGROUND_SERVICE
-- RECEIVE_BOOT_COMPLETED (optional)
+- RECEIVE_BOOT_COMPLETED
 - POST_NOTIFICATIONS (runtime on Android 13+)
 - ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION
 - WAKE_LOCK, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
@@ -54,7 +54,7 @@
 ## Requirements (building yourself)
 - Java 17 and Android SDK Platform-Tools (adb)
 - Firebase `google-services.json` (for FCM) placed under `app/`
-- Device on Android 8.1+ (minSdk 27)
+- Device on Android 8.1+ (minSdk 27) (tested on UniHertz Atom)
 
 ## Code overview
 - `App`: UI to enter Slack/API/API key, enable or disable Slack/API/periodic, start or stop service
