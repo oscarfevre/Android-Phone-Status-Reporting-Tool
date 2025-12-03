@@ -40,10 +40,12 @@ public class FcmService extends FirebaseMessagingService {
         svc.putExtra("api", api);
         svc.putExtra("apiKey", apiKey);
         svc.putExtra("triggerImmediate", true);
-        // Force immediate sends to go to API only; disable Slack/periodic for this trigger
-        svc.putExtra("enableSlack", false);
-        svc.putExtra("enableApi", true);
-        svc.putExtra("enablePeriodic", false);
+        // Keep user Slack setting; force immediate to API only
+        boolean savedSlack = Prefs.get(ctx).getBoolean("enable_slack", true);
+        boolean savedApi = Prefs.get(ctx).getBoolean("enable_api", true);
+        svc.putExtra("enableSlack", savedSlack);
+        svc.putExtra("enableApi", savedApi);
+        svc.putExtra("immediateApiOnly", true);
         ContextCompat.startForegroundService(ctx, svc);
     }
 

@@ -3,13 +3,13 @@
 ## What it does
 - Collects device metrics (memory %, temperature, battery level/voltage) and location (lat/lon/accuracy/provider/timestamp)
 - Posts to Slack and/or your API. API calls can include an Authorization Bearer header
-- Supports periodic sends (every 30s) or on-demand via Firebase Cloud Messaging (FCM) data messages
+- Supports on-demand sends via Firebase Cloud Messaging (FCM) data messages
 - Runs as a foreground service and can restart after boot
 
 ## Quick start (device)
 - Install: use a published APK (Releases) or build `./gradlew clean assembleDebug` then `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 - Open the app and enter Slack webhook, API URL, optional API key
-- Choose: enable/disable Slack, API, and periodic 30s sends (leave periodic off for FCM-only on-demand). FCM-triggered sends go to the API only
+- Choose: enable or disable Slack and API. GPS/API payloads are only sent on FCM request; Slack can post every 30 seconds if enabled
 - Tap “Start Service” and grant notifications + location. Verify payloads arriving at Slack/API
 - If sideloading via `adb`, enable USB debugging on the device (Developer Options → USB debugging) and accept the RSA prompt
 
@@ -29,7 +29,7 @@
 
 ## End-to-end flow
 1) App starts service → collects metrics/location
-2) If periodic enabled: posts every 30s to enabled targets (Slack/API)
+2) GPS and metrics are sent only on FCM request
 3) Token management: on token refresh, app POSTs `{type: registerToken, deviceId, fcmToken}` to your API (if set)
 4) Backend stores token; when an event occurs, backend sends FCM `{type: REQUEST_LOCATION}` to that token
 5) App receives FCM, triggers immediate `collectAndSend`, posting to your API
@@ -68,8 +68,8 @@
 - Device on Android 8.1+ (minSdk 27) (tested on UniHertz Atom)
 
 ## Code overview
-- `App`: UI to enter Slack/API/API key, enable or disable Slack/API/periodic, start or stop service
-- `MetricService`: foreground service that collects metrics/location, posts to Slack/API; honors periodic/target toggles; can send immediately on FCM trigger
+- `App`: UI to enter Slack/API/API key, enable or disable Slack/API, start or stop service
+- `MetricService`: foreground service that collects metrics/location, posts to Slack/API; can send immediately on FCM trigger
 - `FcmService`: receives FCM data `{type: REQUEST_LOCATION}`, starts `MetricService` with `triggerImmediate`; on token refresh, posts token to API (if configured)
 - `ApiPoster`/`SlackPoster`: lightweight OkHttp clients
 - `Prefs`: encrypted/shared preferences for settings
@@ -77,7 +77,6 @@
 
 ## Notes
 - Keep secrets out of git: `google-services.json`, service account keys, keystores stay local
-- If you want only on-demand, disable periodic sends in the app UI
 - FCM tokens can rotate; ensure backend stores the latest from `registerToken`
 - Whitelist the app from aggressive battery savers/App Blocker on the device for reliable FCM and foreground service (for example, Settings → Battery → Battery optimization/App Blocker → allow this app)
 - Quick test: start service, capture token (or let backend receive `registerToken`), send FCM REQUEST_LOCATION via script, confirm a single payload arrives at your API (and Slack if enabled)

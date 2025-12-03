@@ -40,16 +40,6 @@
             android:trackTint="#66d32a0f"
             android:checked="true" />
 
-        <Switch
-            android:id="@+id/switchEnablePeriodic"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Enable periodic 30s sends"
-            android:textColor="#222222"
-            android:thumbTint="#d32a0f"
-            android:trackTint="#66d32a0f"
-            android:checked="true" />
-
         <EditText
             android:id="@+id/editApiEndpoint"
             android:layout_width="match_parent"

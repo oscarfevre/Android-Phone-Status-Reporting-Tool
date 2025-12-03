@@ -51,9 +51,9 @@ public class MetricService extends Service {
     private String apiKey = null;
     private boolean enableSlack = true;
     private boolean enableApi = true;
-    private boolean enablePeriodic = true;
     private int intervalSeconds = 30;
     private boolean triggerImmediate = false;
+    private boolean immediateApiOnly = false;
 
     @Override
     public void onCreate() {
@@ -79,35 +79,37 @@ public class MetricService extends Service {
         if (intent != null && intent.hasExtra("enableApi")) {
             enableApi = intent.getBooleanExtra("enableApi", true);
         }
-        if (intent != null && intent.hasExtra("enablePeriodic")) {
-            enablePeriodic = intent.getBooleanExtra("enablePeriodic", true);
-        }
         if (intent != null && intent.getBooleanExtra("triggerImmediate", false)) {
             triggerImmediate = true;
         }
-        if (scheduler == null) {
-            // prime CPU baseline so first tick has a delta
-            long[] priming = MetricsCollector.readCpuStat();
-            if (priming != null) {
-                prevIdle = priming[3] + priming[4];
-                long total = 0;
-                for (long v : priming) total += v;
-                prevTotal = total;
+        if (intent != null && intent.hasExtra("immediateApiOnly")) {
+            immediateApiOnly = intent.getBooleanExtra("immediateApiOnly", false);
+        } else {
+            immediateApiOnly = false;
+        }
+        if (scheduler != null) {
+            try {
+                scheduler.shutdownNow();
+            } catch (Exception ignored) {
             }
-            scheduler = Executors.newSingleThreadScheduledExecutor();
-            if (enablePeriodic) {
-                scheduler.scheduleAtFixedRate(this::collectAndSend, 0, intervalSeconds, TimeUnit.SECONDS);
-            }
+            scheduler = null;
+        }
+        // always create executor so immediate tasks can run
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+        if (enableSlack) {
+            scheduler.scheduleAtFixedRate(() -> collectAndSend(true, false), 0, intervalSeconds, TimeUnit.SECONDS);
         }
         if (triggerImmediate) {
             triggerImmediate = false;
-            scheduler.execute(this::collectAndSend);
+            boolean allowSlack = immediateApiOnly ? false : enableSlack;
+            boolean allowApi = enableApi;
+            scheduler.execute(() -> collectAndSend(allowSlack, allowApi));
         }
         startLocationUpdates();
         return START_STICKY;
     }
 
-    private void collectAndSend() {
+    private void collectAndSend(boolean allowSlack, boolean allowApi) {
         try {
             Context ctx = getApplicationContext();
             double cpu = 0.0;
@@ -141,14 +143,14 @@ public class MetricService extends Service {
                     "[%s] [%s] NOTIFICATION [Camera %s] MEM: %.1f%% | %s | Battery: %d%% | Voltage: %s",
                     nowShort, nowFull, (deviceName != null ? deviceName : deviceId), memPct, tempStr, bi.level, voltage);
 
-            if (enableSlack && webhookUrl != null && !webhookUrl.isEmpty()) {
+            if (allowSlack && enableSlack && webhookUrl != null && !webhookUrl.isEmpty()) {
                 boolean ok = SlackPoster.postToWebhook(webhookUrl, msg);
                 Log.i(TAG, "Posted to Slack: " + ok);
             } else {
                 Log.i(TAG, "Slack disabled or webhook not set, message: " + msg);
             }
 
-            if (enableApi && apiEndpoint != null && !apiEndpoint.isEmpty()) {
+            if (allowApi && enableApi && apiEndpoint != null && !apiEndpoint.isEmpty()) {
                 try {
                     org.json.JSONObject payload = new org.json.JSONObject();
                     payload.put("deviceId", deviceId);

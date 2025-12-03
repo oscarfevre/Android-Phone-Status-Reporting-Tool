@@ -23,7 +23,6 @@ public class App extends AppCompatActivity {
     private EditText apiKeyInput;
     private Switch enableSlack;
     private Switch enableApi;
-    private Switch enablePeriodic;
     private Button startButton;
     private Button stopButton;
     private TextView statusView;
@@ -33,7 +32,6 @@ public class App extends AppCompatActivity {
     private static final String KEY_API_KEY = "api_key";
     private static final String KEY_ENABLE_SLACK = "enable_slack";
     private static final String KEY_ENABLE_API = "enable_api";
-    private static final String KEY_ENABLE_PERIODIC = "enable_periodic";
     private static final int REQ_POST_NOTIF = 42;
     private static final int REQ_LOCATION = 43;
 
@@ -50,7 +48,6 @@ public class App extends AppCompatActivity {
         apiKeyInput = findViewById(R.id.editApiKey);
         enableSlack = findViewById(R.id.switchEnableSlack);
         enableApi = findViewById(R.id.switchEnableApi);
-        enablePeriodic = findViewById(R.id.switchEnablePeriodic);
 
         SharedPreferences prefs = Prefs.get(this);
         String saved = prefs.getString(KEY_WEBHOOK, "");
@@ -58,13 +55,11 @@ public class App extends AppCompatActivity {
         String savedApiKey = prefs.getString(KEY_API_KEY, "");
         boolean savedSlack = prefs.getBoolean(KEY_ENABLE_SLACK, true);
         boolean savedApiSend = prefs.getBoolean(KEY_ENABLE_API, true);
-        boolean savedPeriodic = prefs.getBoolean(KEY_ENABLE_PERIODIC, true);
         webhookInput.setText(saved);
         apiInput.setText(savedApi);
         apiKeyInput.setText(savedApiKey);
         enableSlack.setChecked(savedSlack);
         enableApi.setChecked(savedApiSend);
-        enablePeriodic.setChecked(savedPeriodic);
 
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -74,20 +69,17 @@ public class App extends AppCompatActivity {
                 String apiKey = apiKeyInput.getText().toString().trim();
                 boolean doSlack = enableSlack.isChecked();
                 boolean doApi = enableApi.isChecked();
-                boolean doPeriodic = enablePeriodic.isChecked();
                 prefs.edit().putString(KEY_WEBHOOK, webhook).apply();
                 prefs.edit().putString(KEY_API, api).apply();
                 prefs.edit().putString(KEY_API_KEY, apiKey).apply();
                 prefs.edit().putBoolean(KEY_ENABLE_SLACK, doSlack).apply();
                 prefs.edit().putBoolean(KEY_ENABLE_API, doApi).apply();
-                prefs.edit().putBoolean(KEY_ENABLE_PERIODIC, doPeriodic).apply();
                 Intent svc = new Intent(App.this, MetricService.class);
                 svc.putExtra("webhook", webhook);
                 svc.putExtra("api", api);
                 svc.putExtra("apiKey", apiKey);
                 svc.putExtra("enableSlack", doSlack);
                 svc.putExtra("enableApi", doApi);
-                svc.putExtra("enablePeriodic", doPeriodic);
                 ContextCompat.startForegroundService(App.this, svc);
                 statusView.setText("Service started");
             }
